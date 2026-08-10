@@ -23,7 +23,7 @@ The CLI is the `harumi` package on PyPI (`pip install harumi`). It installs one 
 
 Run these in order and stop at the first failure — each step depends on the previous one.
 
-1. [Install](#1-install) — get the `harumi` binary on PATH
+1. [Install](#1-install) — confirm what's on PATH, then let the user pick an install method
 2. [Pick the environment](#2-pick-the-environment) — production (default) or staging
 3. [Log in](#3-log-in) — interactive OTP; **must be run by the user**
 4. [Set the organization](#4-set-the-organization) — only if the user belongs to more than one
@@ -49,36 +49,47 @@ python3 -m pip show harumi                         # installed? which location?
 
 The Python import is the reliable signal: the real CLI ships the importable `harumi` package alongside the console script, so `ModuleNotFoundError: No module named 'harumi'` means it isn't installed no matter what `harumi --version` printed. See [name collisions](#name-collisions) if a foreign `harumi` is shadowing it.
 
-**Recommended — pipx** (isolated venv, `harumi` on PATH, no dependency conflicts with the user's project):
+### Survey the machine, then let the user choose
+
+Installing Python software touches state the user cares about — which interpreter owns the package, whether a shared venv gains dependencies, what lands on PATH. There's no single right answer across machines, so find out what's available and **ask the user which method they want** rather than picking for them:
 
 ```bash
-pipx install harumi
+command -v pipx uv pip3                     # which installers exist
+ls -d ~/.venv .venv venv 2>/dev/null        # a project venv nearby?
+echo "$VIRTUAL_ENV"                         # already inside one?
+for p in python3 python3.11 python3.12 python3.13; do
+  command -v $p >/dev/null && echo "$p $($p --version 2>&1)"
+done
 ```
 
-**pip into the active environment** (fine inside a project venv/conda env):
+Present the options that actually apply, with the tradeoff for each, and note anything you found that makes one a bad fit — an interpreter near end of life, a missing installer, or a `harumi` already on PATH that a new install would overwrite (see [name collisions](#name-collisions)). The user's Python setup is theirs; surprising them by mutating a shared environment or shadowing an existing command is the failure mode to avoid.
+
+| Method | Command | Best when |
+|---|---|---|
+| **pipx** | `pipx install harumi` | Default recommendation. Isolated venv, `harumi` on PATH, no dependency conflicts with the user's projects. |
+| **uv** | `uv tool install harumi` | Same isolation as pipx, much faster. Good if `uv` is already present. |
+| **pip into a venv** | `python3 -m pip install harumi` | Inside a project venv or conda env, when solver code will `import harumi` too. |
+| **pip --user** | `python3 -m pip install --user harumi` | No pipx/uv and no venv. Installs into the user site-packages; needs its script dir on PATH. |
+| **From source** | `pip install -e .` (add `".[dev]"` for pytest) | Contributing to `harumi-cli`, or picking up an unreleased fix. Run from a clone. |
+
+Pin the interpreter when the default `python3` is old or end-of-life — the CLI needs ≥ 3.9, but a newer runtime ages better:
 
 ```bash
-pip install harumi
+pipx install --python python3.12 harumi
+uv tool install --python 3.12 harumi
 ```
 
-**From source** — for contributing to `harumi-cli` or picking up an unreleased fix. Run from a clone of the `harumi-cli` repo:
+**Upgrade / reinstall / uninstall** — use whichever matches how it was installed:
 
 ```bash
-pip install -e .          # editable install
-pip install -e ".[dev]"   # plus pytest / pytest-asyncio for running the test suite
+pipx upgrade harumi      # or: uv tool upgrade harumi
+pipx reinstall harumi    #     python3 -m pip install --upgrade harumi
+pipx uninstall harumi    # or: uv tool uninstall harumi / python3 -m pip uninstall harumi
 ```
 
-**Upgrade / reinstall / uninstall:**
+Prefer `python3 -m pip ...` over bare `pip` whenever there's doubt about which `pip` is first on PATH — the module form guarantees the package lands in the interpreter you named.
 
-```bash
-pipx upgrade harumi           # or: pip install --upgrade harumi
-pipx reinstall harumi
-pipx uninstall harumi         # or: pip uninstall harumi
-```
-
-Prefer `python -m pip install ...` when there is any doubt about which `pip` is on PATH — it guarantees the package lands in the same interpreter that will run.
-
-If `pip install harumi` succeeds but `harumi --version` still says command not found, the script directory isn't on PATH. See [Install troubleshooting](#install-troubleshooting).
+If the install succeeds but `harumi --version` still says command not found, the script directory isn't on PATH. See [Install troubleshooting](#install-troubleshooting).
 
 ## 2. Pick the environment
 
@@ -205,10 +216,12 @@ Tell the user which of these you're doing rather than silently working around it
 | `harumi --version` works but every subcommand is unrecognized | Same as above — wrong `harumi` | See [name collisions](#name-collisions) |
 | `ModuleNotFoundError: No module named 'harumi'` | The real package isn't installed (whatever `harumi --version` said) | Install it — step 1 |
 | `command not found: harumi` after a successful `pip install` | Script dir not on PATH | `pipx ensurepath` (then restart the shell), or invoke via `python -m harumi.cli`, or add the reported `Scripts`/`bin` dir to PATH |
-| `ERROR: Package 'harumi' requires a different Python` | Python < 3.9 | Install on 3.9+; with pipx: `pipx install --python python3.12 harumi` |
-| Installed but an old version runs | Multiple installs (pip + pipx, or several venvs) | `which -a harumi` to see them all; uninstall the stale one |
-| `error: externally-managed-environment` | System Python (PEP 668, common on Debian/Ubuntu/Homebrew) | Use `pipx install harumi`, or install inside a venv |
-| Permission denied writing to site-packages | Installing into system Python | Use pipx or a venv — do **not** `sudo pip install` |
+| `ERROR: Package 'harumi' requires a different Python` | Python < 3.9 | Install on 3.9+; pin it: `pipx install --python python3.12 harumi` |
+| Installed but an old version runs | Multiple installs (pip + pipx + uv, or several venvs) | `which -a harumi` to see them all; uninstall the stale one with the same tool that installed it |
+| `error: externally-managed-environment` | System Python (PEP 668, common on Debian/Ubuntu/Homebrew) | Use `pipx`/`uv tool install`, a venv, or `--user` — not `sudo` |
+| Permission denied writing to site-packages | Installing into system Python | Use pipx/uv or a venv — do **not** `sudo pip install` |
+| Installed fine, but `import harumi` fails in the user's script | Installed with pipx/uv, which isolate the CLI from other interpreters | That's expected. For library use, `pip install harumi` into the venv running the code — the two installs can coexist |
+| `pipx: command not found` | pipx not installed | `brew install pipx` (macOS), `python3 -m pip install --user pipx`, or choose another method from step 1 |
 | `git not found` on `harumi run` / `harumi import` | git missing from PATH | Install git |
 | `Not logged in. Run harumi login first.` | No session, or it expired, for the **active** environment | `harumi login` (check `harumi env current` — you may be logged in on the other env) |
 | `harumi-api returned HTTP 422: ... Signups not allowed for otp` | First login for this email | `harumi login --signup` |
