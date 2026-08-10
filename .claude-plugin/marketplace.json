@@ -1,0 +1,37 @@
+{
+  "name": "harumi-skills",
+  "owner": {
+    "name": "Harumi.io",
+    "url": "https://harumi.io"
+  },
+  "metadata": {
+    "description": "Harumi's Claude Code plugin marketplace — skills for the Harumi platform and CLI.",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "harumi-cli-plugin",
+      "source": "./harumi-cli-plugin",
+      "displayName": "Harumi CLI",
+      "description": "Install and drive the `harumi` CLI: run local optimization/solver code on Harumi's infrastructure, and manage projects, repos, runs, datasources, schedules, secrets, and organizations.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Harumi.io",
+        "url": "https://harumi.io"
+      },
+      "homepage": "https://docs.harumi.io/docs/cli",
+      "repository": "https://github.com/harumi-io/harumi-skills",
+      "license": "Apache-2.0",
+      "category": "developer-tools",
+      "keywords": [
+        "harumi",
+        "cli",
+        "optimization",
+        "solver",
+        "gurobi",
+        "or-tools",
+        "python"
+      ]
+    }
+  ]
+}
