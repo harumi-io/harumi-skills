@@ -211,7 +211,7 @@ Requires the directory (or a parent) to be bound via `harumi init`.
 |---|---|
 | `--branch, -b` | Run a specific branch. Default: current branch (or scratch branch if dirty/unpushed). |
 | `--commit` | Run a specific commit SHA. |
-| `--command, -c` | Override the command in `harumi.toml`. |
+| `--command, -c` | Override the entrypoint for this run. The default comes from a `harumi.toml` `command` committed in the repo and resolved server-side — the CLI itself never parses that file. |
 | `--kernel, -k` | Override the kernel spec (e.g. `or_python_small`, `gurobi_python_medium`). |
 | `--watch, -w` | Block until the run reaches a terminal status. |
 | `--output-dir, -o` | With `--watch`: download output zip here on success. |

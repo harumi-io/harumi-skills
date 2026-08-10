@@ -72,7 +72,18 @@ harumi import [PATH] [--project-name NAME] [--from-git URL] [--no-bind]
 
 ### 2. Run code
 
-Pick a kernel size first if needed — `harumi specs` lists `name`, `display_name`, `cpu`, `memory`, `subscription_required`. The `name` is what `--kernel` takes.
+**`harumi run` takes no file path.** It executes whatever the project's *repo* is configured to run at the given git ref — the entrypoint comes from a `harumi.toml` `command` field committed in the repo, which the backend reads. The CLI never parses that file itself, so don't expect a local `harumi.toml` to change anything on its own; it has to be committed and pushed.
+
+This trips people up constantly, because "run my script" naturally suggests `harumi run solver.py`. Two ways to actually target a specific file:
+
+```bash
+harumi run --command "python solver.py"                 # override for this run only
+harumi run --command "python demos/project_demo/main.py"  # multi-file: cwd is the repo root, so relative imports work
+```
+
+Or commit a `harumi.toml` pointing `command` at it, which makes it the project default. If a run executes the wrong thing, check `harumi runs get <RUN_ID>` — it reports the `command` that actually ran.
+
+Pick a kernel size if needed — `harumi specs` lists `name`, `display_name`, `cpu`, `memory`, `subscription_required`. The `name` is what `--kernel` takes.
 
 **Default — scratch branch, for uncommitted/unpushed work:**
 
@@ -92,7 +103,7 @@ harumi run --commit abc123f
 harumi run --command "python solver.py" --kernel gurobi_python_medium
 ```
 
-`--command` overrides the `command` in the project's `harumi.toml`; `harumi run` does **not** take a file path directly.
+`--branch` and `--commit` skip the scratch-branch path entirely and run the named ref as-is — so local edits are ignored, which is what you want for reproducing a past result and *not* what you want mid-iteration.
 
 **Block until done and download artifacts:**
 
