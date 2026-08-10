@@ -19,6 +19,24 @@ To update later:
 /plugin marketplace update harumi-skills
 ```
 
+## Install the `harumi` CLI
+
+With the plugin installed, ask Claude to set the CLI up for you — the `harumi-cli-setup` skill walks the whole path from nothing installed to a verified, logged-in CLI:
+
+```
+Use the harumi-cli-setup skill to install and configure the harumi CLI on this machine.
+```
+
+Or invoke the skill directly:
+
+```
+/harumi-cli-plugin:harumi-cli-setup install the CLI and get me logged in
+```
+
+Claude will pick an install method (pipx or pip), confirm you got the real CLI rather than another tool with the same name, then hand the login step to you — `harumi login` emails a one-time code, so it needs you at the keyboard. Tip: type `! harumi login` in the Claude Code prompt so the output lands in the conversation.
+
+Phrasings like "install the harumi cli", "harumi: command not found", or "my harumi login isn't working" trigger the skill on their own — you don't have to name it.
+
 ## Plugins
 
 ### `harumi-cli-plugin`
