@@ -51,7 +51,7 @@ harumi-skills/
                 └── SKILL.md
 ```
 
-`marketplace.json` sets `metadata.pluginRoot` to `./plugins`, so plugin `source` paths are resolved from there.
+Each plugin's `source` in `marketplace.json` is a full path relative to the repo root (`./plugins/harumi-cli-plugin`). A `./`-prefixed source always resolves from the marketplace root, so it ignores `metadata.pluginRoot` — set one or the other, not both.
 
 ## Local development
 
@@ -79,7 +79,7 @@ claude plugin validate ./plugins/harumi-cli-plugin
 
 1. Create `plugins/<your-plugin>/.claude-plugin/plugin.json` with at least `name` and `description`.
 2. Add skills under `plugins/<your-plugin>/skills/<skill-name>/SKILL.md`. Keep `commands/`, `agents/`, `hooks/`, and `skills/` at the **plugin root** — only `plugin.json` belongs inside `.claude-plugin/`.
-3. Append an entry to the `plugins` array in `.claude-plugin/marketplace.json` with `name` and `source` (relative to `pluginRoot`).
+3. Append an entry to the `plugins` array in `.claude-plugin/marketplace.json` with `name` and `source` — e.g. `"./plugins/<your-plugin>"`, relative to the repo root.
 4. Bump `version` in both the plugin entry and `plugin.json` — users only get updates when it changes.
 5. Run `claude plugin validate` and test with `--plugin-dir`.
 

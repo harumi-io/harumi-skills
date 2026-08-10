@@ -5,13 +5,12 @@
     "url": "https://harumi.io"
   },
   "metadata": {
-    "description": "Harumi's Claude Code plugin marketplace — skills for the Harumi platform and CLI.",
-    "pluginRoot": "./plugins"
+    "description": "Harumi's Claude Code plugin marketplace — skills for the Harumi platform and CLI."
   },
   "plugins": [
     {
       "name": "harumi-cli-plugin",
-      "source": "./harumi-cli-plugin",
+      "source": "./plugins/harumi-cli-plugin",
       "displayName": "Harumi CLI",
       "description": "Install and drive the `harumi` CLI: run local optimization/solver code on Harumi's infrastructure, and manage projects, repos, runs, datasources, schedules, secrets, and organizations.",
       "version": "0.1.0",
