@@ -179,7 +179,7 @@ Override the home directory with `HARUMI_HOME`. Upgrading from a pre-environment
 
 ## Name collisions
 
-`harumi` is a generic enough name that another tool may already own it on PATH — a real binary, or a one-line shell shim that execs something else (`exec hermes -p harumi "$@"` is one seen in the wild). This is worth ruling out early because every downstream symptom is confusing: the command exists, exits 0, prints a version, and yet no Harumi subcommand works.
+`harumi` is a generic enough name that another tool may already own it on PATH — either a real binary, or a one-line shell script that execs something else entirely. This is worth ruling out early because every downstream symptom is confusing: the command exists, exits 0, prints a version, and yet no Harumi subcommand works.
 
 Diagnose by comparing what's on PATH against what Python has:
 
