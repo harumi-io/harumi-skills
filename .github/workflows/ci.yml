@@ -1,0 +1,38 @@
+name: CI
+
+# Guards the layout every installer depends on: `npx skills` discovery
+# (Cursor/Codex/etc via the open Agent Skills ecosystem) and the Claude Code
+# plugin manifest. A change that breaks either fails here instead of at
+# install time for a user.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate-skills:
+    name: Validate skill discovery
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: npx skills discovery (list-only, no install)
+        run: |
+          output=$(npx --yes skills add . --list 2>&1)
+          echo "$output"
+          echo "$output" | grep -q "harumi-cli-setup"
+          echo "$output" | grep -q "harumi-cli"
+
+      - name: Every skill has valid frontmatter
+        run: |
+          for skill_md in skills/*/SKILL.md; do
+            dir=$(dirname "$skill_md")
+            name=$(basename "$dir")
+            echo "Checking $skill_md"
+            grep -q "^name: $name$" "$skill_md" || { echo "::error file=$skill_md::frontmatter name must equal folder name '$name'"; exit 1; }
+            grep -q "^description:" "$skill_md" || { echo "::error file=$skill_md::missing description"; exit 1; }
+          done

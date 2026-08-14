@@ -4,12 +4,12 @@ Detailed flag reference, config/credential storage, troubleshooting, and the Pyt
 
 ## Contents
 
-- [Global flags](#global-flags)
 - [Auth commands](#auth-commands)
 - [env](#env)
 - [profile](#profile)
 - [config set-org](#config-set-org)
 - [specs](#specs)
+- [templates](#templates)
 - [notebooks](#notebooks)
 - [projects](#projects)
 - [init](#init)
@@ -18,6 +18,8 @@ Detailed flag reference, config/credential storage, troubleshooting, and the Pyt
 - [runs](#runs)
 - [outputs](#outputs)
 - [repo](#repo)
+- [dashboard](#dashboard)
+- [share](#share)
 - [datasources](#datasources)
 - [schedules](#schedules)
 - [secrets](#secrets)
@@ -25,31 +27,6 @@ Detailed flag reference, config/credential storage, troubleshooting, and the Pyt
 - [Config & credential files](#config--credential-files)
 - [Troubleshooting](#troubleshooting)
 - [Python library (`Client`) alternative](#python-library-client-alternative)
-
-## Global flags
-
-Flags on the `harumi` app itself, before the subcommand:
-
-```
-harumi [--version] [--env NAME] <command> ...
-```
-
-| Flag | Meaning |
-|---|---|
-| `--version` | Print the CLI version (e.g. `harumi 0.3.2`) and exit. |
-| `--env NAME` | Target this backend environment for this invocation only. Validated eagerly — an unknown name exits 1 with `Unknown environment 'x'. Known environments: production, staging.` Implemented by setting `HARUMI_ENV` for the process, so every config load in that run resolves it. |
-
-Common per-command flags, available on nearly every subcommand:
-
-| Flag | Meaning |
-|---|---|
-| `--project`, `-p` | Project id, overriding the `.harumi` binding. On `init` it is **required** (`--project`/`-p`). |
-| `--api-url` | Override the harumi-api base URL without changing the active environment. |
-| `--git-url` | Override the Harumi Git base URL (only on commands that touch git: `login`, `init`, `import`, `projects create`, `run`). |
-| `--org` | Organization id sent as `X-Organization` for this call. Not accepted by `org` subcommands or `env`. |
-| `--yes`, `-y` | Skip the confirmation prompt on destructive commands. |
-
-Requires Python ≥ 3.9 and `git` on PATH. See the `harumi-cli-setup` skill for installation.
 
 ## Auth commands
 
@@ -63,12 +40,12 @@ Logs into the **active environment** (see [env](#env)) — pass `harumi --env st
 
 - Prompts for email if `--email` omitted, then prompts for the OTP code emailed by Supabase.
 - `--signup`: creates the Supabase account first. Required the *first* time a new email logs in.
-- On success, stores `access_token`/`refresh_token` at `~/.harumi/environments/<env>/credentials.json` (mode `0600`), then calls `POST /git/credentials` to provision a per-user Gitea personal access token (`git_token` + `git_url`), used by `harumi init` and `harumi run` for git-over-HTTPS.
+- On success, stores `access_token`/`refresh_token` at `~/.harumi/credentials.json` (mode `0600`), then calls `POST /git/credentials` to provision a per-user Gitea personal access token (`git_token` + `git_url`), used by `harumi init` and `harumi run` for git-over-HTTPS.
 - Best-effort org resolution: if exactly one org, stored automatically; if multiple, prints a table and instructs `harumi config set-org`.
 
 ### `harumi logout`
 
-Clears the stored session for the **active environment** (`~/.harumi/environments/<env>/credentials.json`) and prints which environment you were logged out of. No flags. Does not affect the other environment's session.
+Clears `~/.harumi/credentials.json`. No flags.
 
 ### `harumi whoami`
 
@@ -118,7 +95,7 @@ harumi profile set [--first-name N] [--last-name N] [--bio TEXT] [--api-url URL]
 harumi config set-org <ORG_ID>
 ```
 
-Persists `org_id` in the **active environment's** config (`~/.harumi/environments/<env>/config.json`); every subsequent request on that environment sends it as `X-Organization`. Override per command with `--org`, or per shell with `HARUMI_ORG`.
+Persists `org_id` in `~/.harumi/config.json`; every subsequent request sends it as `X-Organization`.
 
 ## `specs`
 
@@ -127,6 +104,14 @@ harumi specs [--api-url URL] [--org ORG]
 ```
 
 Lists kernel specs (`name`, `display_name`, `cpu`, `memory`, `subscription_required`) from `GET /sandbox/specs`. `name` is what you pass to `run --kernel`.
+
+## `templates`
+
+```
+harumi templates [--api-url URL] [--org ORG]
+```
+
+Lists project templates (`id`, `slug`, `name`, `description`) from `GET /templates`. Pass a template's `id` as `projects create --template-id`.
 
 ## `notebooks`
 
@@ -211,7 +196,7 @@ Requires the directory (or a parent) to be bound via `harumi init`.
 |---|---|
 | `--branch, -b` | Run a specific branch. Default: current branch (or scratch branch if dirty/unpushed). |
 | `--commit` | Run a specific commit SHA. |
-| `--command, -c` | Override the entrypoint for this run. The default comes from a `harumi.toml` `command` committed in the repo and resolved server-side — the CLI itself never parses that file. |
+| `--command, -c` | Override the command in `harumi.toml`. |
 | `--kernel, -k` | Override the kernel spec (e.g. `or_python_small`, `gurobi_python_medium`). |
 | `--watch, -w` | Block until the run reaches a terminal status. |
 | `--output-dir, -o` | With `--watch`: download output zip here on success. |
@@ -221,8 +206,6 @@ Requires the directory (or a parent) to be bound via `harumi init`.
 The CLI detects local changes, creates a temporary branch `harumi-scratch/<user>/<yyyymmdd-HHMMSS>` from HEAD, commits the full working tree to it using a throwaway git index (the user's real index/HEAD are untouched), pushes it to the `harumi` remote, queues the run, then deletes the remote scratch branch when finished (best-effort cleanup). The user never has to commit manually for a quick iteration.
 
 **Calls:** `POST /projects/{id}/execute` with `{ branch, commit?, command?, kernel_spec? }`, which returns `{execution_log_id, status, workflow_run_id?, project_run_id?}`. With `--watch`, the CLI then polls `GET /projects/{id}/runs/{run_id}` until it reaches a terminal status.
-
-**Exit codes / output:** without `--watch` the command prints the queued ids and exits 0 immediately, plus a hint to run `harumi runs get <RUN_ID> --project <ID>` later. With `--watch` it prints each polled status, then exits **1** if the run ends in a non-successful status (printing `status`, `error`, and `stderr`). `--output-dir` only downloads on a successful watched run; a download failure is a yellow warning, not a hard failure. The scratch branch is cleaned up in a `finally` block, so it is removed even if the run fails.
 
 ## `runs`
 
@@ -250,12 +233,13 @@ Deprecated alias kept for backwards compatibility — prefer `harumi runs` for n
 - `--project` optional if run from a bound directory.
 - No extra flags: table of all runs (`id`, `status`, `started`, `ended`, `git_branch`).
 - `--latest`: only the most recently started run.
-- `--download <run_id> [--output-dir DIR]`: downloads the run's committed output via the repo archive endpoint.
+- `--download <run_id> [--output-dir DIR]`: downloads the run's output artifacts as a zip via `GET /projects/{id}/runs/{run_id}/output/archive` (proxied by the API from S3 for current runs, or Gitea for pre-migration runs — transparently to the caller).
 
 ## `repo`
 
 ```
 harumi repo ls [--ref REF] [--project ID] [--api-url URL] [--org ORG]
+harumi repo dir [PATH] [--ref REF] [--project ID] [--api-url URL] [--org ORG]
 harumi repo cat PATH [--ref REF] [--output FILE] [--project ID]
 harumi repo put LOCAL_PATH REPO_PATH [-m MSG] [--branch B] [--project ID]
 harumi repo rm PATH [-m MSG] [--branch B] [--yes] [--project ID]
@@ -270,6 +254,7 @@ harumi repo promote NAME [--title T] [--delete-after] [--project ID]
 Real endpoints on harumi-api's git router. All writes go through the batch `POST /projects/{id}/repo/changes` endpoint, so every `put`/`rm`/`mv` is exactly one commit.
 
 - **`ls`**: `GET /projects/{id}/repo/files[?ref=]` → flat, recursive file list.
+- **`dir`**: `GET /projects/{id}/repo/dir?path=&ref=` → one folder level (GitHub-style repo browser: immediate children only, each with its last commit, plus the branch's latest commit/total commit count). Use `ls` instead for a flat, whole-repo listing.
 - **`cat`**: `GET /projects/{id}/repo/file-content?path=...[&ref=]`, base64-decodes `content`. Prints to stdout, or writes bytes to `--output` (required for binary files — the CLI refuses to print non-UTF-8 content without `--output`).
 - **`put`**: probes `get_repo_file` first to decide `create` vs `update`, then sends one `repo/changes` operation with base64-encoded file content.
 - **`rm`**: sends a `delete` operation for the path (file or folder — deletes everything under a folder prefix). Prompts for confirmation unless `--yes`.
@@ -279,6 +264,42 @@ Real endpoints on harumi-api's git router. All writes go through the batch `POST
 - **`branch-create`**: `POST /projects/{id}/repo/branches` with `{name, from_branch?}`.
 - **`branch-rm`**: `DELETE /projects/{id}/repo/branches/{name}`. Refuses (server-side) to delete the live branch.
 - **`promote`**: `POST /projects/{id}/repo/branches/{name}/promote` with `{title?, delete_after}`; merges the version into the live branch. On a merge conflict the response's `conflict=true` and the CLI surfaces `message` as an error instead of a fake success.
+
+`--project` on every subcommand overrides the `.harumi` binding.
+
+## `dashboard`
+
+```
+harumi dashboard widgets [--type TYPE]
+harumi dashboard validate [PATH] [--ref REF] [--against FILE | --run RUN_ID | --latest] [--project ID]
+```
+
+No backend endpoint — `dashboard.toml` is a plain file in the project's Gitea repo (read/write it with `repo cat`/`repo put` like any other file). This command group only helps you get its contents right. Full per-type reference: [dashboard.md](dashboard.md).
+
+- **`widgets`**: prints the current widget-type contract (required/optional keys, enum values) for all 5 types, or one with `--type`. Sourced from `harumi.dashboard.WIDGET_SCHEMAS`, a hand-maintained mirror of harumi-platform's `schema.ts` (see the `ponytail:` comment in that module) — always current with this CLI version, but can drift from the platform between CLI releases if a new widget type ships there first.
+- **`validate`**: parses a `dashboard.toml` (`PATH`, defaulting to `./dashboard.toml`; or `--ref BRANCH` to check the repo's copy via `GET /repo/file-content`) the same way the platform's `parseDashboardConfig` does, and reports every widget that would be **dropped** (unknown `type`, missing/invalid required key — e.g. a `valueKey` typo for `value_key`). Exits 1 if any widget is dropped.
+  - `--against FILE`: additionally resolves every widget's dot-path keys (`value_key`, `rows_key`, `data_key`, `tasks_key`, etc.) against a local `output.json` and reports any that don't resolve (widget renders empty on the platform, not an error there).
+  - `--run RUN_ID` / `--latest`: same dot-path check, but fetches the run's structured output from `GET /projects/{id}/runs/{run_id}/output` (S3-backed for current runs, Gitea for pre-migration runs — resolved transparently by the API) instead of a local file.
+  - At most one of `--against`/`--run`/`--latest` may be passed.
+
+## `share`
+
+```
+harumi share status [--project ID]
+harumi share enable [--project ID]
+harumi share disable [--project ID]
+harumi share rotate [--yes] [--project ID]
+harumi share set-password [--project ID]
+harumi share rm-password [--project ID]
+```
+
+Manages `/projects/{id}/share*` — a project's public, unauthenticated dashboard link (read-only `dashboard.toml` + a chosen run's `output.json`, no login required to view).
+
+- **`status`** / **`enable`**: `GET`/`POST /projects/{id}/share` → `ProjectShareStatus {share_enabled, share_token, password_set}`. When enabled, the CLI prints the viewer URL as `{platform_url}/share/{token}` — the API itself never returns a full URL since it doesn't know its own public origin.
+- **`disable`**: `DELETE /projects/{id}/share`. The old token stops working immediately (not just hidden).
+- **`rotate`**: `POST /projects/{id}/share/rotate` — invalidates the current token and mints a new one. Prompts for confirmation unless `--yes`.
+- **`set-password`**: prompts for a password (hidden input, server-enforced 8–200 chars), then `PUT /projects/{id}/share/password`. Changing the password invalidates every previously issued unlock session — viewers must re-enter it.
+- **`rm-password`**: `DELETE /projects/{id}/share/password`. The link becomes freely viewable (no password prompt).
 
 `--project` on every subcommand overrides the `.harumi` binding.
 
@@ -427,6 +448,8 @@ Within the active environment, URL/org overrides (highest first): **CLI flags > 
 | `No fields to update.` | An `update`/`set` command called with no flags | Pass at least one field flag |
 | `harumi-api returned HTTP 400: Invalid cron expression: ...` | `schedules add/update --cron` failed server-side `croniter` validation | Fix the cron string (5 fields: minute hour day month weekday) |
 | `{path!r} is not valid UTF-8 text.` | `repo cat` on a binary file without `--output` | Re-run with `--output <local_path>` |
+| A widget is missing from the dashboard, no error shown | The platform silently drops a widget with an unknown `type` or a missing/renamed required key (e.g. `valueKey` instead of `value_key`) | `harumi dashboard validate` on the file before pushing it |
+| A widget renders but stays empty | Its `*_key` dot-path doesn't match anything in the run's `output.json` | `harumi dashboard validate --latest` (or `--against <output.json>`) to see exactly which key and what's available instead |
 
 ## Python library (`Client`) alternative
 
@@ -437,7 +460,7 @@ from harumi import Client
 from harumi.config import ProjectBinding
 
 binding = ProjectBinding.load()        # reads .harumi/config.json
-client = Client()                      # loads ~/.harumi/environments/<env>/credentials.json
+client = Client()                      # loads ~/.harumi/credentials.json
 
 # Queue a git-ref run
 response = client.execute_project(
@@ -476,6 +499,17 @@ client.create_secret(binding.project_id, "API_KEY", "s3cr3t")
 
 # Organizations
 orgs = client.list_organizations()
+
+# Templates
+templates = client.list_templates()
+
+# Dashboard widget contract + validation
+from harumi.dashboard import WIDGET_SCHEMAS, validate_dashboard_toml
+widgets, issues = validate_dashboard_toml(open("dashboard.toml").read())
+
+# Public share link
+status = client.enable_share(binding.project_id)
+print(status.share_token)
 
 # Create a project
 project = client.create_project("New Project")  # project.repo is None if unprovisioned

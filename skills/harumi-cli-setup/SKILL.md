@@ -9,8 +9,8 @@ description: >-
   switch the backend environment (production vs staging), set the organization, or
   diagnose a broken install ("Not logged in", "No Gitea token found", VPN/network
   errors on api.dev.harumi.io, wrong Python/pip, pipx vs venv). Once the CLI is
-  installed and authenticated, use the `harumi-cli` skill instead to actually run
-  commands.
+  installed and authenticated, use the `harumi-cli` skill instead to actually use
+  it.
 ---
 
 # Harumi CLI — Setup
@@ -91,6 +91,14 @@ Prefer `python3 -m pip ...` over bare `pip` whenever there's doubt about which `
 
 If the install succeeds but `harumi --version` still says command not found, the script directory isn't on PATH. See [Install troubleshooting](#install-troubleshooting).
 
+**Once installed, seed this skill pair onto the user's machine too** — every install method above (pipx, uv, pip) ships `harumi skill install`, which copies both `harumi-cli-setup` and `harumi-cli` into whichever coding agents it detects (`~/.cursor/skills/`, `~/.claude/skills/`, `~/.codex/skills/`, or `--project` for the repo the user is in):
+
+```bash
+harumi skill install            # detected agents, global scope
+harumi skill install --project  # this repo only
+harumi skill path                # print the bundled skill dir to copy manually
+```
+
 ## 2. Pick the environment
 
 The CLI ships two built-in environments. Each is backed by its **own Supabase**, so each has its own separate login.
@@ -102,7 +110,7 @@ The CLI ships two built-in environments. Each is backed by its **own Supabase**,
 
 ```bash
 harumi env list            # selectable envs, active one flagged (staging hidden by default)
-harumi env list --all      # include internal/VPN-only envs (same as HARUMI_INTERNAL=1)
+harumi env list --all      # include internal/VPN-only environments (same as HARUMI_INTERNAL=1)
 harumi env current         # active env + its endpoints
 harumi env use staging     # persist as the default
 harumi --env staging login # or override for a single command
@@ -232,6 +240,6 @@ Tell the user which of these you're doing rather than silently working around it
 | `Unknown environment 'x'. Known environments: production, staging.` | Typo in `--env` / `HARUMI_ENV` / `env use` | Use one of the two names |
 | `You belong to multiple organizations.` | Ambiguous org after login | `harumi config set-org <ORG_ID>` (see step 4) |
 
-## Notes for this plugin
+## Notes for this skill
 
-Nothing in this plugin ships the CLI itself — the CLI is installed from PyPI, and the skills only document and drive it. If a command's real behavior ever contradicts these docs, trust `harumi --help` / `harumi <group> <cmd> --help` and say so.
+The CLI is installed from PyPI; this skill only documents and drives it. If a command's real behavior ever contradicts these docs, trust `harumi --help` / `harumi <group> <cmd> --help` and say so.
