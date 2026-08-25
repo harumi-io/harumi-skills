@@ -2,7 +2,7 @@
   "name": "harumi-cli-plugin",
   "displayName": "Harumi CLI",
   "description": "Install and drive the `harumi` CLI: run local optimization/solver code on Harumi's infrastructure, and manage projects, repos, runs, datasources, schedules, secrets, and organizations.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "author": {
     "name": "Harumi.io",
     "email": "devops@harumi.io"
